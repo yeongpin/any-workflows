@@ -1,0 +1,156 @@
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+  }
+  
+  .workflow-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .workflow-canvas {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    background-color: #fafafa;
+    background-image: 
+      linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+      linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: center center;
+    cursor: grab;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+  }
+  
+  .workflow-canvas:active {
+    cursor: grabbing;
+  }
+  
+  .canvas-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform-origin: center center;
+    background: transparent;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    will-change: transform;
+  }
+  
+  .zoom-controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: white;
+    padding: 8px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 1000;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  
+  .zoom-controls span {
+    min-width: 60px;
+    text-align: center;
+    font-size: 14px;
+  }
+  
+  .zoom-controls button {
+    padding: 4px 8px;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .zoom-controls button:hover {
+    background: #f5f5f5;
+  }
+  
+  .coordinates-display {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: white;
+    padding: 8px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 1000;
+    font-size: 12px;
+    font-family: monospace;
+  }
+  
+  /* 確保節點可以正常拖動 */
+  .node {
+    position: absolute;
+    cursor: move;
+    z-index: 100;
+    pointer-events: all;
+  }
+  
+  /* 修改節點樣式以顯示坐標 */
+  .node::after {
+    content: attr(data-coords);
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
+    font-family: monospace;
+  }
+  
+  
+  .connections-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  
+  .temp-connection {
+    pointer-events: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    animation: dash 1s linear infinite;
+  }
+  
+  @keyframes dash {
+    to {
+      stroke-dashoffset: -10;
+    }
+  }
+  
+  /* 添加連線的提示樣式 */
+  .port:hover::before {
+    content: "Alt+Click: 斷開連接\nCtrl+Click: 重新連接";
+    position: absolute;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: pre;
+    pointer-events: none;
+    z-index: 1000;
+  }

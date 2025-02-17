@@ -9,7 +9,7 @@
 </template>
 
 <script>
-import { computed, watch } from 'vue'
+import { computed, watch, ref } from 'vue'
 
 export default {
   name: 'Connection',
@@ -24,28 +24,56 @@ export default {
     }
   },
   setup(props) {
-    const getPortPosition = (node, isOutput) => {
-      // 固定的端口水平位置
-      const portX = isOutput ? 150 : 0
+    // 緩存節點高度
+    const nodeHeights = ref(new Map())
 
-      // 根據節點類型決定端口垂直位置
-      let portY = 35 // 默認高度
-      
-      if (node.type === 'ImageNode') {
-        portY = 110 // Image 節點的端口位置
-      } else if (node.type === 'ProcessNode' || node.type === 'EndNode') {
-        portY = 60 // Process 節點的端口位置
-      } else if (node.type === 'StartNode') {
-        portY = 65 // Start 和 End 節點的端口位置
-      } else if (node.type === 'VideoNode') {
-        portY = 108 // Video 節點的端口位置
+    const updateNodeHeight = (node) => {
+      const nodeElement = document.querySelector(`[data-node-id="${node.id}"]`)
+      if (nodeElement) {
+        const newHeight = nodeElement.offsetHeight
+        const oldHeight = nodeHeights.value.get(node.id)
+        
+        if (newHeight !== oldHeight) {
+          nodeHeights.value.set(node.id, newHeight)
+          return true
+        }
       }
+      return false
+    }
+
+    const getPortPosition = (node, isOutput) => {
+      const portX = isOutput ? 150 : 0
+      const height = nodeHeights.value.get(node.id) || updateNodeHeight(node)
+      const portY = height ? height / 2 : 35 // 默認高度為 35
 
       return {
         x: node.position.x + portX,
         y: node.position.y + portY
       }
     }
+
+    // 監聽節點變化
+    watch(() => props.nodes, (newNodes, oldNodes) => {
+      let heightChanged = false
+      
+      // 檢查相關節點的高度是否變化
+      const startNode = newNodes.find(n => n.id === props.connection.start)
+      const endNode = newNodes.find(n => n.id === props.connection.end)
+      
+      if (startNode) {
+        heightChanged = updateNodeHeight(startNode) || heightChanged
+      }
+      if (endNode) {
+        heightChanged = updateNodeHeight(endNode) || heightChanged
+      }
+
+      if (heightChanged) {
+        console.log('Node heights updated:', 
+          startNode && `${startNode.type}: ${nodeHeights.value.get(startNode.id)}px`,
+          endNode && `${endNode.type}: ${nodeHeights.value.get(endNode.id)}px`
+        )
+      }
+    }, { deep: true, immediate: true })
 
     const pathData = computed(() => {
       const startNode = props.nodes.find(n => n.id === props.connection.start)
@@ -56,18 +84,19 @@ export default {
         return ''
       }
 
-      // 計算起點和終點位置
+      // 確保高度已更新
+      updateNodeHeight(startNode)
+      updateNodeHeight(endNode)
+
       const isStartOutput = props.connection.startPort === 'out'
       const isEndOutput = props.connection.endPort === 'out'
       
       const start = getPortPosition(startNode, isStartOutput)
       const end = getPortPosition(endNode, isEndOutput)
 
-      // 計算控制點
       const dx = Math.abs(end.x - start.x) * 0.5
       let startControlX, endControlX
 
-      // 根據連接方向調整控制點
       if (isStartOutput) {
         startControlX = start.x + dx
         endControlX = end.x - dx
@@ -76,7 +105,6 @@ export default {
         endControlX = end.x + dx
       }
 
-      // 確保控制點在起點和終點之間
       if (start.x < end.x) {
         startControlX = Math.min(startControlX, end.x)
         endControlX = Math.max(endControlX, start.x)
@@ -85,14 +113,8 @@ export default {
         endControlX = Math.min(endControlX, start.x)
       }
 
-      // 生成貝塞爾曲線路徑
       return `M ${start.x} ${start.y} C ${startControlX} ${start.y}, ${endControlX} ${end.y}, ${end.x} ${end.y}`
     })
-
-    // 監聽節點位置變化
-    watch(() => props.nodes, () => {
-      // 當節點位置更新時，路徑會自動重新計算
-    }, { deep: true })
 
     return {
       pathData
@@ -105,7 +127,6 @@ export default {
 path {
   pointer-events: all;
   cursor: pointer;
-  transition: stroke 0.3s, stroke-width 0.3s;
 }
 
 path:hover {

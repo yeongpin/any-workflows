@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useWorkflowStore } from './store/workflow'
 import ActionBar from './components/ActionBar/ActionBar.vue'
 import TabBar from './components/TabBar/TabBar.vue'
@@ -12,6 +12,7 @@ import NodeContextMenu from './components/NodeContextMenu.vue'
 import ImageNode from './components/nodes/NodeTypes/ImageNode.vue'
 import NotificationList from './components/NotificationSystem/NotificationList.vue'
 import VideoNode from './components/nodes/NodeTypes/VideoNode.vue'
+import URLNode from './components/nodes/NodeTypes/URLNode.vue'
 
 export default {
   name: 'App',
@@ -27,7 +28,8 @@ export default {
     NodeContextMenu,
     ImageNode,
     NotificationList,
-    VideoNode
+    VideoNode,
+    URLNode
   },
   setup() {
     const store = useWorkflowStore()
@@ -76,7 +78,32 @@ export default {
     }
 
     const switchTab = (tabId) => {
+      // 先更新當前 tab 的連線位置
+      const currentTab = tabs.value.find(tab => tab.id === activeTabId.value)
+      if (currentTab) {
+        currentTab.workflow.nodes.forEach(node => {
+          const nodeElement = document.querySelector(`[data-node-id="${node.id}"]`)
+          if (nodeElement) {
+            console.log(`Current tab node ${node.type} height: ${nodeElement.offsetHeight}px`)
+          }
+        })
+      }
+
+      // 切換到新的 tab
       activeTabId.value = tabId
+      
+      // 等待 DOM 更新後立即重新計算新 tab 的連線位置
+      nextTick(() => {
+        const newTab = tabs.value.find(tab => tab.id === tabId)
+        if (newTab) {
+          // 強制重新渲染所有連線
+          const connections = [...newTab.workflow.connections]
+          newTab.workflow.connections = []
+          nextTick(() => {
+            newTab.workflow.connections = connections
+          })
+        }
+      })
     }
 
     const closeTab = (tabId) => {
@@ -198,7 +225,8 @@ export default {
       process: 0,
       end: 0,
       image: 0,
-      video: 0
+      video: 0,
+      url: 0  // 添加 url 計數器
     })
 
     const addNodeFromToolbar = (type) => {
@@ -660,6 +688,32 @@ export default {
       if (node) {
         node.content = newContent
         addNotification(`Content updated for node: ${node.title}`, 'info')
+        
+        // 等待一個 frame 確保 DOM 已更新
+        requestAnimationFrame(() => {
+          // 再等一個 frame 確保樣式已應用
+          requestAnimationFrame(() => {
+            const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`)
+            if (nodeElement) {
+              // 強制重新計算佈局
+              nodeElement.offsetHeight
+              const height = nodeElement.offsetHeight
+              console.log(`Node ${node.type} new height after content update: ${height}px`)
+              
+              // 更新所有連線
+              if (currentWorkflow.value.connections.length > 0) {
+                // 保存所有連線
+                const allConnections = [...currentWorkflow.value.connections]
+                // 清空連線
+                currentWorkflow.value.connections = []
+                // 立即重新添加所有連線，強制重新計算所有路徑
+                requestAnimationFrame(() => {
+                  currentWorkflow.value.connections = allConnections
+                })
+              }
+            }
+          })
+        })
       }
     }
 

@@ -9,6 +9,9 @@ import ProcessNode from './components/nodes/NodeTypes/ProcessNode.vue'
 import EndNode from './components/nodes/NodeTypes/EndNode.vue'
 import PortContextMenu from './components/PortContextMenu.vue'
 import NodeContextMenu from './components/NodeContextMenu.vue'
+import ImageNode from './components/nodes/NodeTypes/ImageNode.vue'
+import NotificationList from './components/NotificationSystem/NotificationList.vue'
+import VideoNode from './components/nodes/NodeTypes/VideoNode.vue'
 
 export default {
   name: 'App',
@@ -21,7 +24,10 @@ export default {
     ProcessNode,
     EndNode,
     PortContextMenu,
-    NodeContextMenu
+    NodeContextMenu,
+    ImageNode,
+    NotificationList,
+    VideoNode
   },
   setup() {
     const store = useWorkflowStore()
@@ -40,7 +46,14 @@ export default {
     
     // 標籤頁管理
     const tabs = ref([
-      { id: 'tab-1', title: 'Untitled-1', workflow: { nodes: [], connections: [] } }
+      { 
+        id: 'tab-1', 
+        title: 'Untitled-1', 
+        workflow: { 
+          nodes: [], 
+          connections: [] 
+        } 
+      }
     ])
     const activeTabId = ref('tab-1')
     
@@ -54,7 +67,10 @@ export default {
       tabs.value.push({
         id: newTabId,
         title: `Untitled-${tabs.value.length + 1}`,
-        workflow: { nodes: [], connections: [] }
+        workflow: {
+          nodes: [],
+          connections: []
+        }
       })
       activeTabId.value = newTabId
     }
@@ -76,22 +92,27 @@ export default {
     // 文件操作方法
     const createNewWorkflow = () => {
       createNewTab()
+      addNotification('New workflow created', 'success')
     }
 
     const saveWorkflow = () => {
       // 實現保存功能
+      addNotification('Workflow saved successfully', 'success')
     }
 
     const openWorkflow = () => {
       // 實現打開功能
+      addNotification('Workflow opened', 'success')
     }
 
     const exportWorkflow = () => {
       // 實現導出功能
+      addNotification('Workflow exported successfully', 'success')
     }
 
     const importWorkflow = () => {
       // 實現導入功能
+      addNotification('Workflow imported successfully', 'success')
     }
 
     const showContextMenu = (event) => {
@@ -175,7 +196,9 @@ export default {
     const nodeCounters = ref({
       start: 0,
       process: 0,
-      end: 0
+      end: 0,
+      image: 0,
+      video: 0
     })
 
     const addNodeFromToolbar = (type) => {
@@ -191,13 +214,9 @@ export default {
       nodeCounters.value[nodeType.toLowerCase()]++
       const count = nodeCounters.value[nodeType.toLowerCase()]
 
-      // 修改位置計算
-      const centerX = rect.width / 2
-      const centerY = rect.height / 2
-      
       const position = {
-        x: Math.round((centerX - pan.value.x) / scale.value),
-        y: Math.round((centerY - pan.value.y) / scale.value)
+        x: Math.round((rect.width / 2 - pan.value.x) / scale.value),
+        y: Math.round((rect.height / 2 - pan.value.y) / scale.value)
       }
 
       const newNode = {
@@ -205,10 +224,13 @@ export default {
         type: `${nodeType}Node`,
         title: `${nodeType} Node #${count.toString().padStart(2, '0')}`,
         content: nodeType,
-        position: { ...position }  // 確保創建新的對象
+        position: { ...position },
+        imageUrl: '',  // 為圖片節點
+        videoUrl: ''   // 為視頻節點
       }
 
       currentWorkflow.value.nodes.push(newNode)
+      addNotification(`Added new ${type} node`, 'success')
     }
 
     const connectionStart = ref(null)
@@ -248,8 +270,17 @@ export default {
           end: data.nodeId,
           endPort: data.portType
         }
-        currentWorkflow.value.connections.push(newConnection)
-        console.log('New connection created:', newConnection)
+        const currentTab = tabs.value.find(tab => tab.id === activeTabId.value)
+        if (currentTab) {
+          currentTab.workflow.connections.push(newConnection)
+          console.log('New connection created:', newConnection)
+          const startNode = currentWorkflow.value.nodes.find(n => n.id === tempConnectionStart.value.nodeId)
+          const endNode = currentWorkflow.value.nodes.find(n => n.id === data.nodeId)
+          addNotification(
+            `Connected ${startNode.title} to ${endNode.title}`, 
+            'success'
+          )
+        }
       }
       tempConnectionStart.value = null
     }
@@ -430,10 +461,13 @@ export default {
         type: `${nodeType}Node`,
         title: `${nodeType} Node #${count.toString().padStart(2, '0')}`,
         content: nodeType,
-        position
+        position,
+        imageUrl: '',  // 為圖片節點
+        videoUrl: ''   // 為視頻節點
       }
 
       currentWorkflow.value.nodes.push(newNode)
+      addNotification(`Added new ${type} node from context menu`, 'success')
       closeContextMenu()
     }
 
@@ -526,6 +560,9 @@ export default {
       const { sourceNode, sourcePort } = portContextMenu.value
       const targetPort = sourcePort === 'out' ? 'in' : 'out'
 
+      const startNode = currentWorkflow.value.nodes.find(n => n.id === sourceNode)
+      const endNode = currentWorkflow.value.nodes.find(n => n.id === targetNodeId)
+
       const newConnection = {
         id: `conn-${Date.now()}`,
         start: sourceNode,
@@ -534,14 +571,29 @@ export default {
         endPort: targetPort
       }
 
-      currentWorkflow.value.connections.push(newConnection)
+      const currentTab = tabs.value.find(tab => tab.id === activeTabId.value)
+      if (currentTab) {
+        currentTab.workflow.connections.push(newConnection)
+        addNotification(
+          `Quick connected ${startNode.title} to ${endNode.title}`, 
+          'success'
+        )
+      }
       closeContextMenu()
     }
 
     const disconnectPort = (data) => {
       const { nodeId, portType } = data
-      const connections = currentWorkflow.value.connections
-      
+      const currentTab = tabs.value.find(tab => tab.id === activeTabId.value)
+      if (!currentTab) return
+
+      const node = currentTab.workflow.nodes.find(n => n.id === nodeId)
+      const connections = currentTab.workflow.connections
+      const count = connections.filter(conn => 
+        (conn.start === nodeId && conn.startPort === portType) ||
+        (conn.end === nodeId && conn.endPort === portType)
+      ).length
+
       // 找到並移除相關連接
       const updatedConnections = connections.filter(conn => {
         const isStart = conn.start === nodeId && conn.startPort === portType
@@ -549,7 +601,11 @@ export default {
         return !isStart && !isEnd
       })
       
-      currentWorkflow.value.connections = updatedConnections
+      currentTab.workflow.connections = updatedConnections
+      addNotification(
+        `Removed ${count} connection${count > 1 ? 's' : ''} from ${node.title} (${portType} port)`, 
+        'info'
+      )
     }
 
     const handleKeyDown = (event) => {
@@ -558,6 +614,10 @@ export default {
         tempConnectionStart.value = null
         // 關閉所有選單
         closeContextMenu()
+      } else if (event.key === 'Delete' && selectedNode.value) {
+        // 刪除選中的節點
+        removeNode(selectedNode.value.id)
+        selectedNode.value = null
       }
     }
 
@@ -571,7 +631,6 @@ export default {
       event.preventDefault()
       event.stopPropagation()
       
-      // 確保 node 存在
       if (!node) {
         console.warn('Node is undefined in context menu')
         return
@@ -583,14 +642,16 @@ export default {
           x: event.clientX,
           y: event.clientY
         },
-        node: { ...node }  // 創建節點的副本
+        node: { ...node }
       }
     }
 
     const updateNodeTitle = (nodeId, newTitle) => {
       const node = currentWorkflow.value.nodes.find(n => n.id === nodeId)
       if (node) {
+        const oldTitle = node.title
         node.title = newTitle
+        addNotification(`Node title updated: "${oldTitle}" → "${newTitle}"`, 'info')
       }
     }
 
@@ -598,7 +659,66 @@ export default {
       const node = currentWorkflow.value.nodes.find(n => n.id === nodeId)
       if (node) {
         node.content = newContent
+        addNotification(`Content updated for node: ${node.title}`, 'info')
       }
+    }
+
+    const removeNode = (nodeId) => {
+      const currentTab = tabs.value.find(tab => tab.id === activeTabId.value)
+      if (!currentTab) return
+
+      const node = currentTab.workflow.nodes.find(n => n.id === nodeId)
+      if (!node) return
+
+      const connectionCount = currentTab.workflow.connections.filter(conn => 
+        conn.start === nodeId || conn.end === nodeId
+      ).length
+
+      // 移除相關的連接
+      currentTab.workflow.connections = currentTab.workflow.connections.filter(conn => 
+        conn.start !== nodeId && conn.end !== nodeId
+      )
+
+      // 移除節點
+      currentTab.workflow.nodes = currentTab.workflow.nodes.filter(n => n.id !== nodeId)
+      
+      addNotification(
+        `Removed node "${node.title}" and ${connectionCount} connection${connectionCount > 1 ? 's' : ''}`, 
+        'info'
+      )
+    }
+
+    const notifications = ref([])
+    const notificationHistory = ref([])
+
+    const addNotification = (message, type = 'info') => {
+      const id = Date.now()
+      const notification = {
+        id,
+        message,
+        type,
+        time: new Date(),
+        read: false
+      }
+      
+      // 添加到當前通知列表
+      notifications.value.push(notification)
+      
+      // 添加到歷史記錄
+      notificationHistory.value.push(notification)
+      
+      // 5秒後自動移除通知
+      setTimeout(() => {
+        removeNotification(id)
+      }, 5000)
+    }
+
+    const removeNotification = (id) => {
+      notifications.value = notifications.value.filter(n => n.id !== id)
+    }
+
+    const clearNotificationHistory = () => {
+      notificationHistory.value = []
     }
 
     onMounted(() => {
@@ -660,7 +780,13 @@ export default {
       nodeContextMenu,
       showNodeContextMenu,
       updateNodeTitle,
-      updateNodeContent
+      updateNodeContent,
+      nodeCounters,
+      removeNode,
+      notifications,
+      notificationHistory,
+      removeNotification,
+      clearNotificationHistory
     }
   }
 }

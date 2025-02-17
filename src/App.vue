@@ -7,6 +7,8 @@
       @exportWorkflow="exportWorkflow"
       @importWorkflow="importWorkflow"
       @addNode="addNodeFromToolbar"
+      :notificationHistory="notificationHistory"
+      @clearHistory="clearNotificationHistory"
     />
     <tab-bar
       :tabs="tabs"
@@ -90,9 +92,14 @@
         :node="nodeContextMenu.node"
         @update:title="updateNodeTitle"
         @update:content="updateNodeContent"
+        @remove-node="removeNode"
         @close="closeContextMenu"
       />
     </div>
+    <notification-list
+      :notifications="notifications"
+      @remove="removeNotification"
+    />
   </div>
 </template>
 

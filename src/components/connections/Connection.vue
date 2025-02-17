@@ -24,7 +24,23 @@ export default {
     }
   },
   setup(props) {
-    // 緩存節點高度
+    const nodeWidth = ref(new Map())
+
+    const updateNodeWidth = (node) => {
+      const nodeElement = document.querySelector(`[data-node-id="${node.id}"]`)
+      if (nodeElement) {
+        const newWidth = nodeElement.offsetWidth
+        const oldWidth = nodeWidth.value.get(node.id)
+        
+        if (newWidth !== oldWidth) {
+          nodeWidth.value.set(node.id, newWidth)
+          console.log(`Node ${node.type} width updated: ${newWidth}px`)
+          return true
+        }
+      }
+      return false
+    }
+
     const nodeHeights = ref(new Map())
 
     const updateNodeHeight = (node) => {
@@ -42,9 +58,10 @@ export default {
     }
 
     const getPortPosition = (node, isOutput) => {
-      const portX = isOutput ? 150 : 0
+      const width = nodeWidth.value.get(node.id) || updateNodeWidth(node)
+      const portX = isOutput ? width : 0
       const height = nodeHeights.value.get(node.id) || updateNodeHeight(node)
-      const portY = height ? height / 2 : 35 // 默認高度為 35
+      const portY = height ? height / 2 : 35
 
       return {
         x: node.position.x + portX,
@@ -54,23 +71,25 @@ export default {
 
     // 監聽節點變化
     watch(() => props.nodes, (newNodes, oldNodes) => {
-      let heightChanged = false
+      let dimensionsChanged = false
       
-      // 檢查相關節點的高度是否變化
+      // 檢查相關節點的尺寸是否變化
       const startNode = newNodes.find(n => n.id === props.connection.start)
       const endNode = newNodes.find(n => n.id === props.connection.end)
       
       if (startNode) {
-        heightChanged = updateNodeHeight(startNode) || heightChanged
+        dimensionsChanged = updateNodeWidth(startNode) || dimensionsChanged
+        dimensionsChanged = updateNodeHeight(startNode) || dimensionsChanged
       }
       if (endNode) {
-        heightChanged = updateNodeHeight(endNode) || heightChanged
+        dimensionsChanged = updateNodeWidth(endNode) || dimensionsChanged
+        dimensionsChanged = updateNodeHeight(endNode) || dimensionsChanged
       }
 
-      if (heightChanged) {
-        console.log('Node heights updated:', 
-          startNode && `${startNode.type}: ${nodeHeights.value.get(startNode.id)}px`,
-          endNode && `${endNode.type}: ${nodeHeights.value.get(endNode.id)}px`
+      if (dimensionsChanged) {
+        console.log('Node dimensions updated:', 
+          startNode && `${startNode.type}: ${nodeWidth.value.get(startNode.id)}x${nodeHeights.value.get(startNode.id)}`,
+          endNode && `${endNode.type}: ${nodeWidth.value.get(endNode.id)}x${nodeHeights.value.get(endNode.id)}`
         )
       }
     }, { deep: true, immediate: true })
@@ -84,7 +103,9 @@ export default {
         return ''
       }
 
-      // 確保高度已更新
+      // 確保尺寸已更新
+      updateNodeWidth(startNode)
+      updateNodeWidth(endNode)
       updateNodeHeight(startNode)
       updateNodeHeight(endNode)
 

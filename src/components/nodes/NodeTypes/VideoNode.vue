@@ -226,7 +226,7 @@ export default {
 
 .video-container {
   position: relative;
-  width: 100%;
+  width: 200px;
   height: 120px;
   min-height: 120px;
   border: 2px dashed #d9d9d9;

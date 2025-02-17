@@ -13,6 +13,7 @@ import ImageNode from './components/nodes/NodeTypes/ImageNode.vue'
 import NotificationList from './components/NotificationSystem/NotificationList.vue'
 import VideoNode from './components/nodes/NodeTypes/VideoNode.vue'
 import URLNode from './components/nodes/NodeTypes/URLNode.vue'
+import html2canvas from 'html2canvas'
 
 export default {
   name: 'App',
@@ -775,6 +776,222 @@ export default {
       notificationHistory.value = []
     }
 
+    // 添加截圖相關的功能
+    const screenshotPreview = ref(null)
+
+    const takeScreenshot = async () => {
+      const canvas = document.querySelector('.canvas-content')
+      if (canvas) {
+        try {
+          const nodes = currentWorkflow.value.nodes
+          const connectionsLayer = document.querySelector('.connections-layer')
+          
+          if (nodes.length === 0) {
+            addNotification('No nodes to screenshot', 'info')
+            return
+          }
+
+          // 保存原始樣式
+          const originalStyles = {
+            canvas: {
+              transform: canvas.style.transform,
+              width: canvas.style.width,
+              height: canvas.style.height
+            },
+            connections: connectionsLayer ? {
+              position: connectionsLayer.style.position,
+              zIndex: connectionsLayer.style.zIndex
+            } : null
+          }
+
+          // 設置截圖樣式
+          canvas.style.transform = 'none'
+          if (connectionsLayer) {
+            connectionsLayer.style.position = 'absolute'
+            connectionsLayer.style.zIndex = '1'
+          }
+
+          // 計算邊界
+          const bounds = nodes.reduce((acc, node) => {
+            const elem = document.querySelector(`[data-node-id="${node.id}"]`)
+            if (elem) {
+              const rect = elem.getBoundingClientRect()
+              return {
+                left: Math.min(acc.left, node.position.x),
+                top: Math.min(acc.top, node.position.y),
+                right: Math.max(acc.right, node.position.x + rect.width),
+                bottom: Math.max(acc.bottom, node.position.y + rect.height)
+              }
+            }
+            return acc
+          }, { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity })
+
+          const padding = 50
+          bounds.left -= padding
+          bounds.top -= padding
+          bounds.right += padding
+          bounds.bottom += padding
+
+          // 創建截圖
+          const screenshot = await html2canvas(canvas, {
+            backgroundColor: '#ffffff',
+            scale: window.devicePixelRatio,
+            x: bounds.left,
+            y: bounds.top,
+            width: bounds.right - bounds.left,
+            height: bounds.bottom - bounds.top,
+            logging: true,
+            useCORS: true,
+            allowTaint: true
+          })
+
+          // 恢復原始樣式
+          Object.assign(canvas.style, originalStyles.canvas)
+          if (connectionsLayer && originalStyles.connections) {
+            Object.assign(connectionsLayer.style, originalStyles.connections)
+          }
+
+          screenshotPreview.value = screenshot.toDataURL()
+        } catch (error) {
+          console.error('Screenshot failed:', error)
+          addNotification('Screenshot failed', 'error')
+        }
+      }
+    }
+
+    const saveScreenshot = () => {
+      if (screenshotPreview.value) {
+        const link = document.createElement('a')
+        link.download = `workflow-${new Date().toISOString()}.png`
+        link.href = screenshotPreview.value
+        link.click()
+        closeScreenshotPreview()
+        addNotification('Screenshot saved', 'success')
+      }
+    }
+
+    const retakeScreenshot = () => {
+      closeScreenshotPreview()
+      takeScreenshot()
+    }
+
+    const closeScreenshotPreview = () => {
+      screenshotPreview.value = null
+    }
+
+    // 在 setup 中添加新的狀態
+    const isSelectingArea = ref(false)
+    const selectionStart = ref(null)
+    const selectionEnd = ref(null)
+
+    // 添加新的方法
+    const selectArea = () => {
+      isSelectingArea.value = true
+      closeScreenshotPreview()
+      
+      const canvas = document.querySelector('.canvas-content')
+      const canvasParent = document.querySelector('.workflow-canvas')
+      if (canvas && canvasParent) {
+        canvas.style.cursor = 'crosshair'
+        const originalStyle = canvas.parentElement.style.cursor
+        canvas.parentElement.style.cursor = 'crosshair'
+        
+        const onMouseDown = (e) => {
+          e.stopPropagation()
+          
+          const canvasRect = canvasParent.getBoundingClientRect()
+          const contentRect = canvas.getBoundingClientRect()
+          
+          // 計算實際的世界坐標
+          selectionStart.value = {
+            x: (e.clientX - contentRect.left) / scale.value,
+            y: (e.clientY - contentRect.top) / scale.value
+          }
+          
+          const selection = document.createElement('div')
+          selection.className = 'area-selection'
+          document.body.appendChild(selection)
+          
+          const onMouseMove = (e) => {
+            e.stopPropagation()
+            
+            if (selectionStart.value) {
+              // 計算當前點的世界坐標
+              const currentX = (e.clientX - contentRect.left) / scale.value
+              const currentY = (e.clientY - contentRect.top) / scale.value
+              
+              // 計算選擇框在屏幕上的位置和大小
+              const screenX = Math.min(e.clientX, e.clientX - (currentX - selectionStart.value.x) * scale.value)
+              const screenY = Math.min(e.clientY, e.clientY - (currentY - selectionStart.value.y) * scale.value)
+              const screenWidth = Math.abs((currentX - selectionStart.value.x) * scale.value)
+              const screenHeight = Math.abs((currentY - selectionStart.value.y) * scale.value)
+              
+              selection.style.left = `${screenX}px`
+              selection.style.top = `${screenY}px`
+              selection.style.width = `${screenWidth}px`
+              selection.style.height = `${screenHeight}px`
+            }
+          }
+          
+          const onMouseUp = async (e) => {
+            e.stopPropagation()
+            
+            // 計算結束點的世界坐標
+            const currentX = (e.clientX - contentRect.left) / scale.value
+            const currentY = (e.clientY - contentRect.top) / scale.value
+            
+            selectionEnd.value = {
+              x: currentX,
+              y: currentY
+            }
+            
+            document.removeEventListener('mousemove', onMouseMove)
+            document.removeEventListener('mouseup', onMouseUp)
+            selection.remove()
+            
+            canvas.style.cursor = ''
+            canvas.parentElement.style.cursor = originalStyle
+            
+            // 計算實際的截圖區域（世界坐標）
+            const x = Math.min(selectionStart.value.x, selectionEnd.value.x)
+            const y = Math.min(selectionStart.value.y, selectionEnd.value.y)
+            const width = Math.abs(selectionEnd.value.x - selectionStart.value.x)
+            const height = Math.abs(selectionEnd.value.y - selectionStart.value.y)
+            
+            // 暫時保存原始樣式
+            const originalTransform = canvas.style.transform
+            
+            // 重置變換以進行截圖
+            canvas.style.transform = `scale(${scale.value})`
+            
+            // 創建截圖
+            const screenshot = await html2canvas(canvas, {
+              x: Math.round(x * scale.value),
+              y: Math.round(y * scale.value),
+              width: Math.round(width * scale.value),
+              height: Math.round(height * scale.value),
+              backgroundColor: '#ffffff',
+              scale: window.devicePixelRatio,
+              useCORS: true,
+              allowTaint: true,
+              logging: true
+            })
+            
+            // 恢復原始變換
+            canvas.style.transform = originalTransform
+            
+            screenshotPreview.value = screenshot.toDataURL()
+            isSelectingArea.value = false
+          }
+          
+          document.addEventListener('mousemove', onMouseMove)
+          document.addEventListener('mouseup', onMouseUp)
+        }
+        
+        canvas.addEventListener('mousedown', onMouseDown, { once: true, capture: true })
+      }
+    }
+
     onMounted(() => {
       document.addEventListener('keydown', handleKeyDown)
     })
@@ -840,7 +1057,14 @@ export default {
       notifications,
       notificationHistory,
       removeNotification,
-      clearNotificationHistory
+      clearNotificationHistory,
+      screenshotPreview,
+      takeScreenshot,
+      saveScreenshot,
+      retakeScreenshot,
+      closeScreenshotPreview,
+      selectArea,
+      isSelectingArea
     }
   }
 }

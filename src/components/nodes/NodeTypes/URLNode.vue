@@ -67,7 +67,7 @@
         <div class="url-dialog" @click.stop>
           <h3>{{ node.url ? 'Edit URL' : 'Add URL' }}</h3>
           <input 
-            v-model="urlInput"
+            v-model="node.url"
             type="url"
             placeholder="Enter URL (e.g., https://example.com)"
             @keyup.enter="saveUrl"

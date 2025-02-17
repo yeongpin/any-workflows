@@ -227,7 +227,7 @@ export default {
       end: 0,
       image: 0,
       video: 0,
-      url: 0  // 添加 url 計數器
+      url: 0  // 確保這裡有 url 計數器
     })
 
     const addNodeFromToolbar = (type) => {
@@ -250,12 +250,13 @@ export default {
 
       const newNode = {
         id: uniqueId,
-        type: `${nodeType}Node`,
+        type: `${nodeType}Node`,  // 確保這裡的 type 會變成 "URLNode"
         title: `${nodeType} Node #${count.toString().padStart(2, '0')}`,
         content: nodeType,
         position: { ...position },
-        imageUrl: '',  // 為圖片節點
-        videoUrl: ''   // 為視頻節點
+        imageUrl: '',
+        videoUrl: '',
+        url: ''
       }
 
       currentWorkflow.value.nodes.push(newNode)
@@ -492,7 +493,8 @@ export default {
         content: nodeType,
         position,
         imageUrl: '',  // 為圖片節點
-        videoUrl: ''   // 為視頻節點
+        videoUrl: '',   // 為視頻節點
+        url: ''        // 為 URL 節點
       }
 
       currentWorkflow.value.nodes.push(newNode)
@@ -566,7 +568,8 @@ export default {
       show: false,
       position: { x: 0, y: 0 },
       sourceNode: null,
-      sourcePort: null
+      sourcePort: null,
+      portOptions: []
     })
 
     const showPortContextMenu = (event, nodeId, portType) => {
@@ -1008,6 +1011,36 @@ export default {
       }
     }
 
+    // 在 setup 中添加新的方法
+    const handleEditNode = (node, event) => {
+      // 使用事件位置來顯示編輯對話框
+      nodeContextMenu.value = {
+        show: true,
+        position: {
+          x: event.clientX - 225,
+          y: event.clientY + 30
+        },
+        node: node
+      }
+    }
+
+    const handleDeleteNode = (node) => {
+      removeNode(node)
+    }
+
+    const handleConnectNode = (node, event, portType) => {
+      // 顯示端口選擇菜單
+      portContextMenu.value = {
+        show: true,
+        position: {
+          x: event.clientX - 100,
+          y: event.clientY + 30
+        },
+        sourceNode: node.id,
+        sourcePort: portType  // 使用傳入的端口類型
+      }
+    }
+
     onMounted(() => {
       document.addEventListener('keydown', handleKeyDown)
     })
@@ -1081,7 +1114,10 @@ export default {
       closeScreenshotPreview,
       selectArea,
       isSelectingArea,
-      screenshotInfo
+      screenshotInfo,
+      handleEditNode,
+      handleDeleteNode,
+      handleConnectNode
     }
   }
 }

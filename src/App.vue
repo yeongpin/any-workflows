@@ -9,6 +9,10 @@
       @addNode="addNodeFromToolbar"
       :notificationHistory="notificationHistory"
       @clearHistory="clearNotificationHistory"
+      :nodes="currentWorkflow.nodes"
+      @editNode="handleEditNode"
+      @deleteNode="handleDeleteNode"
+      @connectNode="handleConnectNode"
     />
     <tab-bar
       :tabs="tabs"

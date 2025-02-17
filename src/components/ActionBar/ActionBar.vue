@@ -1,5 +1,6 @@
 <template>
   <div class="action-bar">
+
     <div class="file-menu">
       <button class="menu-button" @click="showFileMenu = !showFileMenu">
         File
@@ -49,6 +50,104 @@
           <text x="12" y="16" text-anchor="middle" fill="white">U</text>
         </svg>
       </button>
+    </div>
+    <div class="node-list-menu">
+      <button class="menu-button" @click="showNodeList = !showNodeList">
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" fill="currentColor"/>
+        </svg>
+        <span class="node-count" v-if="nodes.length">{{ nodes.length }}</span>
+      </button>
+      <div v-if="showNodeList" class="node-list-dropdown">
+        <div class="node-list-header">
+          <div class="header-title">
+            <span>Node List</span>
+            <span class="node-count-text">{{ nodes.length }} nodes</span>
+          </div>
+          <div class="list-actions">
+            <button 
+              class="action-button"
+              :class="{ active: selectedNodes.length === nodes.length }"
+              @click.stop="selectAllNodes"
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" fill="currentColor"/>
+                <path d="M18 9l-1.4-1.4-6.6 6.6-2.6-2.6L6 13l4 4z" fill="currentColor"/>
+              </svg>
+              Select All
+            </button>
+            <button 
+              class="action-button"
+              :class="{ active: selectedNodes.length > 0 }"
+              @click.stop="deselectAllNodes"
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" fill="currentColor"/>
+              </svg>
+              Deselect
+            </button>
+          </div>
+        </div>
+        <div class="search-box">
+          <input 
+            type="text" 
+            v-model="searchQuery" 
+            placeholder="Search nodes..."
+            @click.stop
+          >
+        </div>
+        <div class="node-list-content">
+          <div 
+            v-for="node in filteredNodes" 
+            :key="node.id"
+            class="node-list-item"
+            :class="{ selected: selectedNodes.includes(node.id) }"
+            @click.stop="toggleNodeSelection(node.id)"
+          >
+            <div class="node-info">
+              <span class="node-type" :class="node.type.toLowerCase()">
+                {{ node.type.replace('Node', '') }}
+              </span>
+              <span class="node-title">{{ node.title }}</span>
+            </div>
+            <div class="node-actions">
+              <button class="icon-btn" title="Edit" @click.stop="editNode(node, $event)">
+                <svg viewBox="0 0 24 24" width="14" height="14">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/>
+                </svg>
+              </button>
+              <button 
+                v-if="node.type !== 'StartNode'"
+                class="icon-btn" 
+                title="Connect to Input" 
+                @click.stop="connectNode(node, $event, 'input')"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14">
+                  <path d="M19 15l-6 6-1.42-1.42L15.17 16H4V4h2v10h9.17l-3.59-3.58L13 9l6 6z" fill="currentColor"/>
+                </svg>
+              </button>
+              <button 
+                v-if="node.type !== 'EndNode'"
+                class="icon-btn" 
+                title="Connect from Output" 
+                @click.stop="connectNode(node, $event, 'out')"
+              >
+                <svg viewBox="0 0 90 90" width="14" height="14">
+                  <path d="M20.8 53.8h41.5c1.1 0 1.6 1.4.9 2.1l-12 12c-.8.8-.8 1.9 0 2.6l2.8 2.8c.8.8 1.9.8 2.6 0l21.9-22c.8-.8.8-1.9 0-2.6l-22-22c-.8-.8-1.9-.8-2.6 0l-2.6 2.6c-.8.8-.8 1.9 0 2.6l12 12c.8.9.3 2.3-.9 2.3H20.9c-1 0-1.9.8-1.9 1.8v3.8c0 1 .8 2 1.8 2" fill="currentColor"/>
+                </svg>
+              </button>
+              <button class="icon-btn delete" title="Delete" @click.stop="deleteNode(node)">
+                <svg viewBox="0 0 24 24" width="14" height="14">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div v-if="filteredNodes.length === 0" class="empty-list">
+            No nodes found
+          </div>
+        </div>
+      </div>
     </div>
     <div class="github-button">
       <a href="https://github.com/yeongpin/any-workflows" target="_blank">
@@ -105,12 +204,24 @@ export default {
     notificationHistory: {
       type: Array,
       default: () => []
+    },
+    nodes: {
+      type: Array,
+      default: () => []
     }
   },
-  emits: ['clearHistory'],
+  emits: [
+    'clearHistory',
+    'editNode',
+    'deleteNode',
+    'connectNode'
+  ],
   setup(props, { emit }) {
     const showFileMenu = ref(false)
     const showNotifications = ref(false)
+    const showNodeList = ref(false)
+    const selectedNodes = ref([])
+    const searchQuery = ref('')
 
     const unreadCount = computed(() => {
       return props.notificationHistory.filter(n => !n.read).length
@@ -125,12 +236,63 @@ export default {
       emit('clearHistory')
     }
 
+    const toggleNodeSelection = (nodeId) => {
+      const index = selectedNodes.value.indexOf(nodeId)
+      if (index === -1) {
+        selectedNodes.value.push(nodeId)
+      } else {
+        selectedNodes.value.splice(index, 1)
+      }
+    }
+
+    const selectAllNodes = () => {
+      selectedNodes.value = props.nodes.map(node => node.id)
+    }
+
+    const deselectAllNodes = () => {
+      selectedNodes.value = []
+    }
+
+    const editNode = (node, event) => {
+      emit('editNode', node, event)
+    }
+
+    const deleteNode = (node) => {
+      if (confirm(`Are you sure you want to delete ${node.title}?`)) {
+        emit('deleteNode', node)
+        showNodeList.value = false
+      }
+    }
+
+    const connectNode = (node, event, direction) => {
+      emit('connectNode', node, event, direction)
+    }
+
+    const filteredNodes = computed(() => {
+      if (!searchQuery.value) return props.nodes
+      const query = searchQuery.value.toLowerCase()
+      return props.nodes.filter(node => 
+        node.title.toLowerCase().includes(query) ||
+        node.type.toLowerCase().includes(query)
+      )
+    })
+
     return { 
       showFileMenu, 
-      showNotifications, 
+      showNotifications,
       unreadCount,
       formatTime,
-      clearHistory
+      clearHistory,
+      showNodeList,
+      selectedNodes,
+      toggleNodeSelection,
+      selectAllNodes,
+      deselectAllNodes,
+      editNode,
+      deleteNode,
+      connectNode,
+      searchQuery,
+      filteredNodes
     }
   }
 }
@@ -144,6 +306,189 @@ export default {
   background: #fff;
   border-bottom: 1px solid #e8e8e8;
   gap: 16px;
+}
+
+.node-list-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 320px;
+  background: white;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  margin-top: 8px;
+  z-index: 1000;
+}
+
+.node-list-header {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.node-count-text {
+  color: #999;
+  font-size: 12px;
+}
+
+.search-box {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  outline: none;
+  font-size: 14px;
+}
+
+.search-box input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
+}
+
+.empty-list {
+  padding: 24px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.node-list-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.node-list-item {
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+}
+
+.node-list-item:hover {
+  background: #f5f5f5;
+}
+
+.node-list-item.selected {
+  background: #e6f7ff;
+}
+
+.node-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.node-type {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: white;
+}
+
+.node-type.startnode {
+  background: #1890ff;
+}
+
+.node-type.processnode {
+  background: #52c41a;
+}
+
+.node-type.endnode {
+  background: #f5222d;
+}
+
+.node-type.imagenode {
+  background: #faad14;
+}
+
+.node-type.videonode {
+  background: #722ed1;
+}
+
+.node-type.urlnode {
+  background: #13c2c2;
+}
+
+.node-title {
+  font-size: 14px;
+  color: #333;
+}
+
+.node-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.node-list-item:hover .node-actions {
+  opacity: 1;
+}
+
+.icon-btn {
+  padding: 4px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #666;
+}
+
+.icon-btn:hover {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.icon-btn.delete:hover {
+  background: #fff1f0;
+  color: #f5222d;
+}
+
+.node-list-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.menu-button {
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  background: white;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.node-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #1890ff;
+  color: white;
+  border-radius: 10px;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .file-menu {
@@ -204,9 +549,6 @@ export default {
   background: #f5f5f5;
 }
 
-.github-button {
-  margin-left: auto;
-}
 
 .notification-menu {
   position: relative;
@@ -304,4 +646,45 @@ export default {
 .history-item.info {
   border-left: 4px solid #1890ff;
 }
-</style> 
+
+.list-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: white;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.action-button:hover {
+  color: #1890ff;
+  border-color: #1890ff;
+  background: #e6f7ff;
+}
+
+.action-button.active {
+  color: #1890ff;
+  border-color: #1890ff;
+  background: #e6f7ff;
+}
+
+.action-button svg {
+  opacity: 0.7;
+}
+
+.action-button:hover svg,
+.action-button.active svg {
+  opacity: 1;
+}
+</style>

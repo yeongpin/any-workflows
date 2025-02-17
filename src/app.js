@@ -778,6 +778,19 @@ export default {
 
     // 添加截圖相關的功能
     const screenshotPreview = ref(null)
+    const screenshotInfo = ref(null)
+
+    const updateScreenshotInfo = (screenshot, width, height) => {
+      // 計算文件大小（KB）
+      const base64str = screenshot.toDataURL().split(',')[1]
+      const fileSize = Math.round((base64str.length * 3/4) / 1024)
+      
+      screenshotInfo.value = {
+        width: Math.round(width),
+        height: Math.round(height),
+        size: fileSize
+      }
+    }
 
     const takeScreenshot = async () => {
       const canvas = document.querySelector('.canvas-content')
@@ -852,6 +865,7 @@ export default {
           }
 
           screenshotPreview.value = screenshot.toDataURL()
+          updateScreenshotInfo(screenshot, bounds.right - bounds.left, bounds.bottom - bounds.top)
         } catch (error) {
           console.error('Screenshot failed:', error)
           addNotification('Screenshot failed', 'error')
@@ -877,6 +891,7 @@ export default {
 
     const closeScreenshotPreview = () => {
       screenshotPreview.value = null
+      screenshotInfo.value = null
     }
 
     // 在 setup 中添加新的狀態
@@ -981,6 +996,7 @@ export default {
             canvas.style.transform = originalTransform
             
             screenshotPreview.value = screenshot.toDataURL()
+            updateScreenshotInfo(screenshot, width, height)
             isSelectingArea.value = false
           }
           
@@ -1064,7 +1080,8 @@ export default {
       retakeScreenshot,
       closeScreenshotPreview,
       selectArea,
-      isSelectingArea
+      isSelectingArea,
+      screenshotInfo
     }
   }
 }

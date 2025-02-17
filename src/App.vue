@@ -116,6 +116,10 @@
     <div v-if="screenshotPreview" class="screenshot-modal">
       <div class="screenshot-content">
         <img :src="screenshotPreview" alt="Workflow Screenshot" />
+        <div class="screenshot-info" v-if="screenshotInfo">
+          <span>{{ Math.round(screenshotInfo.width) }} x {{ Math.round(screenshotInfo.height) }} px</span>
+          <span>{{ screenshotInfo.size }} KB</span>
+        </div>
         <div class="screenshot-actions">
           <button class="action-button" @click="saveScreenshot">
             <svg viewBox="0 0 24 24" width="16" height="16">
